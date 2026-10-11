@@ -155,8 +155,11 @@ already applied, so a resend cannot be counted twice. There is a regression test
 is the emulator's network rather than the app, since the CDN is unaffected by the Unreachable switch,
 but I did not confirm it.
 
-**Left out:** part 3 entirely; the screen recording; iOS. The 18-second ready timeout is a guess that
-has not been tuned against a slow real device.
+**Left out:** part 3 entirely, designed above but not built. The recording covers Android only; the
+app was run and verified on the iPhone, but no clip of it was captured. On iOS I confirmed the
+consent and loading behaviour from the server's logs rather than by inspecting each screen, so the
+article layout and the pull-to-refresh gesture there are unconfirmed. The 18-second ready timeout is
+a guess that has not been tuned against a slow real device.
 
 ## If the system kills a web view's content process in the background
 
