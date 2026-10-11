@@ -113,18 +113,28 @@ applies once per value; the article's title sits below the toolbar; a teaser ope
 `?ref=front` arrives in the next page's status box; a `/consent` failure still lets the page load,
 and a late answer produces exactly one reload with the string present.
 
-**iOS — not verified.** No Mac or iOS device was available in this session. Nothing iOS-specific is
-claimed below, and the layout, the floating toolbar, the pull-to-refresh gesture and the read
-detector's inset arithmetic are the places I would expect differences first.
+**iOS — verified on a physical iPhone** over Wi-Fi, against the fixture server on the LAN. The
+consent rule behaved exactly as specified, from the server's own log: the request went out at
+19:35:08, the front page loaded 5.26 s later without a consent string because the five-second gate
+had fired, the answer arrived at 6.1 s, and the document reloaded once, 100 ms after it. Opening a
+teaser carried `?ref=front` through to the article.
 
-**Assumed without checking:** rotation; tablets; behaviour on a physical device over Wi-Fi rather
-than `adb reverse`; the whole of the `/consent` failure matrix beyond the one 500 I happened to hit;
-and anything about iOS.
+**The one behavioural difference between the platforms is the app context.** On iOS every page event
+reaches the collector clean; on Android most are flagged `no app context`. The hook that sets
+`window.appContext` before the page's own scripts is reliable on iOS's WKWebView and races the
+document on Android. This is the Android-only bug described under *Known bugs* below, and iOS is the
+evidence that the approach itself is sound.
+
+**Assumed without checking:** rotation; tablets; the whole of the `/consent` failure matrix beyond
+the one 500 and the one slow answer I happened to hit; the iOS pull-to-refresh gesture against
+WKWebView's rubber-band scrolling, which is the hand-rolled part I would expect to differ next; and
+the exact iPhone model and iOS version, which are recorded in the submission message rather than
+here.
 
 ## Known bugs and what I left out
 
-**The web tracker's events often lack the app context, on Android.** The control panel flags most
-`page view` events with `no app context`. `window.appContext` is set from
+**The web tracker's events often lack the app context, on Android only.** The control panel flags
+most `page view` events with `no app context` on Android; on iOS the same events arrive clean. `window.appContext` is set from
 `injectedJavaScriptBeforeContentLoaded`, which on Android is delivered at `onPageStarted` and races
 the page's own inline scripts; the web tracker reads `window.appContext` the moment it starts, and
 sometimes wins. I shrank that hook to the two assignments and nothing else, which narrows the window
