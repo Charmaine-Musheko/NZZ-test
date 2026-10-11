@@ -113,7 +113,8 @@ applies once per value; the article's title sits below the toolbar; a teaser ope
 `?ref=front` arrives in the next page's status box; a `/consent` failure still lets the page load,
 and a late answer produces exactly one reload with the string present.
 
-**iOS — verified on a physical iPhone** over Wi-Fi, against the fixture server on the LAN. The
+**iOS — verified on a physical iPhone 16, iOS 26.6.1**, Expo Go, over Wi-Fi against the fixture
+server on the LAN. The
 consent rule behaved exactly as specified, from the server's own log: the request went out at
 19:35:08, the front page loaded 5.26 s later without a consent string because the five-second gate
 had fired, the answer arrived at 6.1 s, and the document reloaded once, 100 ms after it. Opening a
@@ -127,9 +128,7 @@ evidence that the approach itself is sound.
 
 **Assumed without checking:** rotation; tablets; the whole of the `/consent` failure matrix beyond
 the one 500 and the one slow answer I happened to hit; the iOS pull-to-refresh gesture against
-WKWebView's rubber-band scrolling, which is the hand-rolled part I would expect to differ next; and
-the exact iPhone model and iOS version, which are recorded in the submission message rather than
-here.
+WKWebView's rubber-band scrolling, which is the hand-rolled part I would expect to differ next.
 
 ## Known bugs and what I left out
 
