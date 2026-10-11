@@ -5,6 +5,13 @@ type Bootstrap = {
   insets: { top: number; bottom: number };
 };
 
+// The smallest possible script for the one hook that runs before the page's
+// own scripts. On Android that hook races those scripts, and the web tracker
+// reads window.appContext the moment it starts, so everything else waits.
+export function contextScript(config: Bootstrap) {
+  return `window.appContext = ${JSON.stringify(config.context)}; window.appInsets = ${JSON.stringify(config.insets)}; true;`;
+}
+
 // These scripts belong to the native integration. The fixture documents stay untouched.
 export function bootstrapScript(config: Bootstrap) {
   return `(function () {

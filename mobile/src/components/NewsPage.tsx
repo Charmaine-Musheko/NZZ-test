@@ -19,7 +19,7 @@ import {
   StateDelivery,
 } from "../core/protocol";
 import { useApp, useColors, useConsent, tracking } from "../state/AppState";
-import { bootstrapScript, stateScript } from "../web/bootstrap";
+import { bootstrapScript, contextScript, stateScript } from "../web/bootstrap";
 
 type Props = {
   page: "front" | "article";
@@ -96,20 +96,20 @@ function LoadedDocument(props: Props & { url: string; retry(): void }) {
   useEffect(() => {
     latest.current = props;
   }, [props]);
-  const [script] = useState(() =>
-    bootstrapScript({
-      page: props.page,
-      articleId: props.articleId,
-      insets: props.insets,
-      context: {
-        appVersion: APP_VERSION,
-        appBuild: APP_BUILD,
-        os: Platform.OS,
-        deviceType:
-          Device.deviceType === Device.DeviceType.TABLET ? "tablet" : "phone",
-      },
-    }),
-  );
+  const [config] = useState(() => ({
+    page: props.page,
+    articleId: props.articleId,
+    insets: props.insets,
+    context: {
+      appVersion: APP_VERSION,
+      appBuild: APP_BUILD,
+      os: Platform.OS,
+      deviceType:
+        Device.deviceType === Device.DeviceType.TABLET ? "tablet" : "phone",
+    },
+  }));
+  const [script] = useState(() => bootstrapScript(config));
+  const [context] = useState(() => contextScript(config));
   const { onLoading } = props;
 
   useEffect(() => {
@@ -305,10 +305,12 @@ function LoadedDocument(props: Props & { url: string; retry(): void }) {
             backgroundColor: colors.background,
             opacity: phase === "ready" ? 1 : 0,
           }}
-          injectedJavaScriptBeforeContentLoaded={script}
+          injectedJavaScriptBeforeContentLoaded={context}
           injectedJavaScript={script}
           onMessage={message}
-          onLoad={() => { didLoad.current = true; }}
+          onLoad={() => {
+            didLoad.current = true;
+          }}
           scrollEnabled={props.page === "article"}
           nestedScrollEnabled={false}
           bounces={false}
