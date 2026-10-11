@@ -49,14 +49,20 @@ export function pageUrl(
   return url.href;
 }
 
-// Per-document ledger: duplicate ready messages never repeat the initial snapshot.
+// Per-document ledger. A value counts as delivered only once the page has
+// acknowledged the sequence number that carried it. An injection the platform
+// drops is therefore sent again, instead of being recorded as delivered and
+// lost for the lifetime of the document.
 export class StateDelivery {
-  private sent = new Map<string, string>();
-  changes(
+  private confirmed = new Map<string, string>();
+  private inFlight: { seq: number; values: Map<string, string> } | null = null;
+  private counter = 0;
+
+  next(
     state: Preferences,
     page: "front" | "article",
     insets: { top: number; bottom: number },
-  ) {
+  ): { seq: number; events: [string, object][] } {
     const entries: [string, object][] = [
       ["app:fontScale", { value: state.fontScale }],
       ["app:theme", { value: state.theme }],
@@ -65,13 +71,36 @@ export class StateDelivery {
         ? [["app:read", { ids: state.read }] as [string, object]]
         : [["app:insets", insets] as [string, object]]),
     ];
-    return entries.filter(([name, detail]) => {
+    const values = new Map<string, string>();
+    const events = entries.filter(([name, detail]) => {
       const value = JSON.stringify(detail);
-      if (this.sent.get(name) === value) return false;
-      this.sent.set(name, value);
-      return true;
+      values.set(name, value);
+      return this.confirmed.get(name) !== value;
     });
+    // Re-asking for an unchanged payload keeps the sequence number, so a
+    // resend stays the same message rather than becoming a new one.
+    if (!this.inFlight || !sameValues(this.inFlight.values, values))
+      this.inFlight = { seq: ++this.counter, values };
+    return { seq: this.inFlight.seq, events };
   }
+
+  ack(seq: number) {
+    if (!this.inFlight || this.inFlight.seq !== seq) return;
+    this.inFlight.values.forEach((value, name) =>
+      this.confirmed.set(name, value),
+    );
+    this.inFlight = null;
+  }
+
+  get awaiting() {
+    return this.inFlight !== null;
+  }
+}
+
+function sameValues(a: Map<string, string>, b: Map<string, string>) {
+  if (a.size !== b.size) return false;
+  for (const [name, value] of a) if (b.get(name) !== value) return false;
+  return true;
 }
 
 export function markRead(

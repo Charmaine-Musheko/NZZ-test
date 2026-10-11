@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -131,17 +131,45 @@ function LoadedDocument(props: Props & { url: string; retry(): void }) {
   useEffect(() => {
     onLoading?.(phase === "loading");
   }, [phase, onLoading]);
+  const send = useCallback(
+    (ready: boolean, active: boolean) => {
+      const { seq, events } = delivery.current.next(
+        preferences,
+        props.page,
+        props.insets,
+      );
+      web.current?.injectJavaScript(
+        stateScript(events, active, ready, props.insets, seq),
+      );
+    },
+    [preferences, props.page, props.insets],
+  );
+  const resend = useRef(send);
+  useEffect(() => {
+    resend.current = send;
+  }, [send]);
   useEffect(() => {
     if (phase !== "ready") return;
-    web.current?.injectJavaScript(
-      stateScript(
-        delivery.current.changes(preferences, props.page, props.insets),
-        props.active && foreground,
-        true,
-        props.insets,
-      ),
-    );
-  }, [preferences, phase, props.page, props.insets, props.active, foreground]);
+    send(true, props.active && foreground);
+  }, [send, phase, props.active, foreground]);
+
+  // An injection can be dropped while the web view is still settling. Nothing
+  // is recorded as delivered until the page acknowledges it, so repeat the
+  // outstanding payload for a short while; the page ignores one it has applied.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      if (!delivery.current.awaiting) {
+        tries = 0;
+        return;
+      }
+      if (tries >= 8) return;
+      tries += 1;
+      resend.current(true, latest.current.active);
+    }, 400);
+    return () => clearInterval(timer);
+  }, [phase]);
 
   // NetInfo alone cannot detect the fixture's unreachable switch: probe the server while failed.
   useEffect(() => {
@@ -209,20 +237,14 @@ function LoadedDocument(props: Props & { url: string; retry(): void }) {
       if (didReady.current || phase === "error") return;
       didReady.current = true;
       web.current?.injectJavaScript(script);
-      web.current?.injectJavaScript(
-        stateScript(
-          delivery.current.changes(preferences, props.page, props.insets),
-          false,
-          true,
-          props.insets,
-        ),
-      );
       if (!didScreen.current) {
         didScreen.current = true;
         tracking.screen(props.page, props.articleId);
       }
       setPhase("ready");
     }
+    if (data.type === "native:stateAck" && typeof data.seq === "number")
+      delivery.current.ack(data.seq);
     if (
       data.type === "height" &&
       typeof data.value === "number" &&

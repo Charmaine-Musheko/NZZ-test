@@ -96,18 +96,20 @@ test("front-page integration: context precedes tracker, state is delivered once,
     const delivery = new StateDelivery();
     await page.evaluate(
       stateScript(
-        delivery.changes(defaults, "front", insets),
+        delivery.next(defaults, "front", insets).events,
         true,
         true,
         insets,
+        1,
       ),
     );
     await page.evaluate(
       stateScript(
-        delivery.changes(defaults, "front", insets),
+        delivery.next(defaults, "front", insets).events,
         true,
         true,
         insets,
+        1,
       ),
     );
     const status = await page.locator("#status").innerText();
@@ -116,10 +118,11 @@ test("front-page integration: context precedes tracker, state is delivered once,
     const initialHeight = (await messages(page, "height")).at(-1).value;
     await page.evaluate(
       stateScript(
-        delivery.changes({ ...defaults, fontScale: 1.4 }, "front", insets),
+        delivery.next({ ...defaults, fontScale: 1.4 }, "front", insets).events,
         true,
         true,
         insets,
+        2,
       ),
     );
     await page.waitForTimeout(250);
@@ -151,10 +154,11 @@ test("article integration: only the final text line counts, with chrome and scre
     const delivery = new StateDelivery();
     await page.evaluate(
       stateScript(
-        delivery.changes(defaults, "article", insets),
+        delivery.next(defaults, "article", insets).events,
         true,
         true,
         insets,
+        1,
       ),
     );
     assert.equal((await messages(page, "native:read")).length, 0);
@@ -162,7 +166,7 @@ test("article integration: only the final text line counts, with chrome and scre
       await page.evaluate(() => (window as any).__insetsAtStart),
       true,
     );
-    await page.evaluate(stateScript([], false, true, insets));
+    await page.evaluate(stateScript([], false, true, insets, 2));
     await page.evaluate(({ bottom }) => {
       const last = Array.from(
         document.querySelectorAll(".articlecomponent.text p"),
@@ -180,7 +184,7 @@ test("article integration: only the final text line counts, with chrome and scre
       0,
       "covered / inactive screens must not mark read",
     );
-    await page.evaluate(stateScript([], true, true, insets));
+    await page.evaluate(stateScript([], true, true, insets, 3));
     await page.waitForFunction(() =>
       (window as any).__messages.some(
         (message: any) => message.type === "native:read",

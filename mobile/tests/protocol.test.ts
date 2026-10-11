@@ -38,16 +38,39 @@ test("consent uses an encoded fragment and never loses the query", () => {
 test("initial state once, each changed field once, fresh document receives a fresh snapshot", () => {
   const delivery = new StateDelivery();
   const insets = { top: 70, bottom: 20 };
-  assert.equal(delivery.changes(defaults, "front", insets).length, 4);
-  assert.equal(delivery.changes(defaults, "front", insets).length, 0);
-  assert.deepEqual(
-    delivery.changes({ ...defaults, theme: "dark" }, "front", insets),
-    [["app:theme", { value: "dark" }]],
-  );
+  const first = delivery.next(defaults, "front", insets);
+  assert.equal(first.events.length, 4);
+  delivery.ack(first.seq);
+  assert.equal(delivery.next(defaults, "front", insets).events.length, 0);
+  const changed = delivery.next({ ...defaults, theme: "dark" }, "front", insets);
+  assert.deepEqual(changed.events, [["app:theme", { value: "dark" }]]);
+  delivery.ack(changed.seq);
   assert.equal(
-    new StateDelivery().changes(defaults, "article", insets).length,
+    new StateDelivery().next(defaults, "article", insets).events.length,
     4,
   );
+});
+test("an injection the page never acknowledges is offered again", () => {
+  const delivery = new StateDelivery();
+  const insets = { top: 70, bottom: 20 };
+  const first = delivery.next(defaults, "front", insets);
+  assert.equal(first.events.length, 4);
+  assert.equal(delivery.awaiting, true);
+  // Unacknowledged: the same payload must come back, under the same sequence
+  // number, so a resend cannot be mistaken for a second change.
+  const retry = delivery.next(defaults, "front", insets);
+  assert.equal(retry.seq, first.seq);
+  assert.deepEqual(retry.events, first.events);
+  // A change while the first is still outstanding supersedes it and still
+  // carries everything the page has not confirmed.
+  const changed = delivery.next({ ...defaults, theme: "dark" }, "front", insets);
+  assert.notEqual(changed.seq, first.seq);
+  assert.equal(changed.events.length, 4);
+  delivery.ack(first.seq);
+  assert.equal(delivery.awaiting, true, "a stale acknowledgement means nothing");
+  delivery.ack(changed.seq);
+  assert.equal(delivery.awaiting, false);
+  assert.equal(delivery.next({ ...defaults, theme: "dark" }, "front", insets).events.length, 0);
 });
 test("read history is unique, ordered by most recent reading, and limited to five", () => {
   let state = defaults;

@@ -12,7 +12,7 @@ export function bootstrapScript(config: Bootstrap) {
     window.appInsets = ${JSON.stringify(config.insets)};
     if (window.__newsBridge) return;
     var config = ${JSON.stringify(config)};
-    var bridge = window.__newsBridge = { active: false, ready: false, read: false, insets: config.insets };
+    var bridge = window.__newsBridge = { active: false, ready: false, read: false, lastSeq: -1, insets: config.insets };
     function post(data) { window.ReactNativeWebView.postMessage(JSON.stringify(data)); }
     function checkRead() {
       if (config.page !== 'article' || !bridge.active || !bridge.ready || bridge.read || document.hidden) return;
@@ -90,13 +90,20 @@ export function stateScript(
   active: boolean,
   ready: boolean,
   insets: { top: number; bottom: number },
+  seq = 0,
 ) {
   return `(function () {
-    ${events.map(([name, detail]) => `window.dispatchEvent(new CustomEvent(${JSON.stringify(name)}, { detail: ${JSON.stringify(detail)} }));`).join("\n")}
-    if (window.__newsBridge) {
-      window.__newsBridge.active = ${active}; window.__newsBridge.ready = ${ready};
-      window.__newsBridge.insets = ${JSON.stringify(insets)};
-      requestAnimationFrame(function () { window.__newsBridge.check(); });
+    var bridge = window.__newsBridge;
+    if (bridge) {
+      bridge.active = ${active}; bridge.ready = ${ready};
+      bridge.insets = ${JSON.stringify(insets)};
     }
+    // A resend of a sequence the page already applied must not reach it twice.
+    if (!bridge || bridge.lastSeq < ${seq}) {
+      if (bridge) bridge.lastSeq = ${seq};
+      ${events.map(([name, detail]) => `window.dispatchEvent(new CustomEvent(${JSON.stringify(name)}, { detail: ${JSON.stringify(detail)} }));`).join(" ")}
+    }
+    try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'native:stateAck', seq: ${seq} })); } catch (e) {}
+    if (bridge && bridge.check) requestAnimationFrame(function () { bridge.check(); });
   })(); true;`;
 }
